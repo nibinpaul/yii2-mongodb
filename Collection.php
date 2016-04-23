@@ -842,6 +842,8 @@ class Collection extends Object
             'NOT IN' => 'buildInCondition',
             'REGEX' => 'buildRegexCondition',
             'LIKE' => 'buildLikeCondition',
+            'NEAR' => 'buildNearCondition',
+            'WITHIN' => 'buildWithinCondition',
         ];
 
         if (!is_array($condition)) {
@@ -1151,5 +1153,58 @@ class Collection extends Object
         }
 
         return [$column => [$operator => $value]];
+    }
+    /**
+     * added by nibinpaul
+     * Creates an Mongo condition, which emulates the `near` operator.
+     * @param string $operator the operator to use
+     * @param array $operands the first operand is the column name. The second and third operands
+     * describe the interval that column value should be in.
+     * @return array the generated Mongo condition.
+     * @throws InvalidParamException if wrong number of operands have been given.
+     */
+    public function buildWithinCondition($operator, $operands)
+    {
+        if (!isset($operands[0], $operands[1], $operands[2])) {
+            throw new InvalidParamException("Operator '$operator' requires three operands.");
+        }
+        list($column, $value1, $value2, $value3) = $operands;
+        if (strncmp('WITHIN', $operator, 3) === 0) {
+            return [
+                $column => [
+                    '$within' => 
+                        ['$centerSphere' =>
+                            [
+                                array(floatval($value1), floatval($value2)), $value3/6378.1
+                            ]
+                        ]
+                ]
+            ];
+        }
+    }
+    
+    /*Not works now*/
+    public function buildNearCondition($operator, $operands)
+    {
+        // print_r($operands);
+        // die()
+        if (!isset($operands[0], $operands[1], $operands[2])) {
+            throw new InvalidParamException("Operator '$operator' requires three operands.");
+        }
+        list($column, $value1, $value2) = $operands;
+        if (strncmp('NEAR', $operator, 4) === 0) {
+            return [
+                $column => [
+                    '$nearSphere' => 
+                        ['$geometry' =>
+                            [
+                                'type'=> "Point",
+                                'coordinates'=>array(floatval($value1), floatval($value2)),
+                                '$maxDistance'=> 500 * 1609.34,
+                            ]
+                        ]
+                ]
+            ];
+        }
     }
 }
